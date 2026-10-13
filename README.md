@@ -44,7 +44,7 @@ Le projet INDEXATION_SUJET est composé de plusieurs modules complémentaires h�
 | [**indexation-sujet-api**](https://github.com/abes-esr/indexation-sujet-api)                     | Service web backend d'inférence (FastAPI) exposant le service de suggestion d'indexation sujet RAMEAU.                                |
 | [**indexation-sujet-vectorisation**](https://github.com/abes-esr/indexation-sujet-vectorisation) | **Ce dépôt** : Pipeline de vectorisation batch des notices RAMEAU et de peuplement des collections Qdrant.                            |
 | [**indexation-sujet-batch-docker**](https://github.com/abes-esr/indexation-sujet-batch-docker)   | Déploiement Docker pour les traitements par lots et les interfaces de mise à jour des données.                                        |
-| [**indexation-sujet-batch-dump**](https://github.com/abes-esr/indexation-sujet-batch-dump)       | Extraction, transformation et génération des dumps de données d'autorités RAMEAU et notices Sudoc.                                    |
+| [**indexation-sujet-batch**](https://github.com/abes-esr/indexation-sujet-batch)                 | Extraction, transformation et génération des dumps de données d'autorités RAMEAU et notices Sudoc.                                    |
 | [**indexation-sujet-script-winibw**](https://github.com/abes-esr/indexation-sujet-script-winibw) | Script client (VBScript) s'intégrant au client lourd de catalogage **WinIBW** pour interroger l'API depuis le poste des catalogueurs. |
 
 ---
@@ -54,7 +54,7 @@ Le projet INDEXATION_SUJET est composé de plusieurs modules complémentaires h�
 ### Flux entrants :
 
 - **Fichiers d'export RAMEAU (Dumps CSV)** :
-  - Générés par le composant [indexation-sujet-batch-dump](https://github.com/abes-esr/indexation-sujet-batch-dump) (ou issus de la procédure Oracle de l'ABES `QE_EXPORT_RAMEAU`).
+  - Générés par le composant [indexation-sujet-batch](https://github.com/abes-esr/indexation-sujet-batch) (ou issus de la procédure Oracle de l'ABES `QE_EXPORT_RAMEAU`).
   - Déposés dans le répertoire partagé [`volumes/csv/`](./volumes/csv/) ou téléversés via l'API :
     - `export_rameau.csv` : Fichier de référence pour l'initialisation complète (`/init`).
     - `export_rameau_update.csv` : Fichier différentiel pour les mises à jour incrémentales (`/update`).
@@ -197,7 +197,7 @@ Le diagramme suivant détaille le cycle de transformation de la donnée au sein 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                                 SOURCES DE DONNÉES                                     │
-│  • Dumps CSV RAMEAU (indexation-sujet-batch-dump / Oracle) dans ./volumes/csv/                      │
+│  • Dumps CSV RAMEAU (indexation-sujet-batch / Oracle) dans ./volumes/csv/                      │
 │  • Modèles HuggingFace : all-MiniLM-L6-v2 (384d), distiluse (512d), e5-large (1024d)   │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │ Dépôt CSV ou upload HTTP multipart
