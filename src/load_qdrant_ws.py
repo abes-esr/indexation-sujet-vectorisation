@@ -43,7 +43,7 @@ def run_vectorization_pipeline(action: str) -> dict:
     try:
         client = docker.DockerClient(base_url=config.DOCKER_SOCK)
 
-        # Alignement strict sur la réservation GPU d'iar-docker (driver: nvidia, count: all, capabilities: [gpu])
+        # Alignement strict sur la réservation GPU d'indexation-sujet-docker (driver: nvidia, count: all, capabilities: [gpu])
         device_requests = [
             docker.types.DeviceRequest(
                 driver="nvidia",
@@ -60,7 +60,7 @@ def run_vectorization_pipeline(action: str) -> dict:
                 try:
                     current_container = client.containers.get(hostname)
                 except Exception:
-                    current_container = client.containers.get("iar-vectorisation")
+                    current_container = client.containers.get("indexation-sujet-vectorisation")
 
                 for mount in current_container.attrs.get("Mounts", []):
                     if mount.get("Destination") == "/app/data":
@@ -75,14 +75,14 @@ def run_vectorization_pipeline(action: str) -> dict:
 
         # Transmission des variables d'environnement au conteneur batch
         batch_env = {
-            "IAR_QDRANT_HOST": config.QDRANT_HOST,
-            "IAR_QDRANT_PORT": str(config.QDRANT_PORT),
-            "IAR_QDRANT_TEST_LIMIT": str(getattr(config, "QDRANT_TEST_LIMIT", 6)),
-            "IAR_QDRANT_MIN_VECTORS": str(getattr(config, "QDRANT_MIN_VECTORS", 1000)),
-            "IAR_CSV_INIT_FILENAME": config.CSV_INIT_FILENAME,
-            "IAR_CSV_UPDATE_FILENAME": config.CSV_UPDATE_FILENAME,
-            "IAR_VECTORIZE_CONCEPTS_OR_CHAINS": config.VECTORIZE_CONCEPTS_OR_CHAINS,
-            "IAR_VECTORIZE_AVEC_THESE": config.VECTORIZE_AVEC_THESE,
+            "INDEXATION_SUJET_QDRANT_HOST": config.QDRANT_HOST,
+            "INDEXATION_SUJET_QDRANT_PORT": str(config.QDRANT_PORT),
+            "INDEXATION_SUJET_QDRANT_TEST_LIMIT": str(getattr(config, "QDRANT_TEST_LIMIT", 6)),
+            "INDEXATION_SUJET_QDRANT_MIN_VECTORS": str(getattr(config, "QDRANT_MIN_VECTORS", 1000)),
+            "INDEXATION_SUJET_CSV_INIT_FILENAME": config.CSV_INIT_FILENAME,
+            "INDEXATION_SUJET_CSV_UPDATE_FILENAME": config.CSV_UPDATE_FILENAME,
+            "INDEXATION_SUJET_VECTORIZE_CONCEPTS_OR_CHAINS": config.VECTORIZE_CONCEPTS_OR_CHAINS,
+            "INDEXATION_SUJET_VECTORIZE_AVEC_THESE": config.VECTORIZE_AVEC_THESE,
         }
 
         launched_containers = []

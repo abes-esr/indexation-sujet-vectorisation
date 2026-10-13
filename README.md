@@ -1,9 +1,9 @@
-# ⚙️ iar-vectorisation : Pipeline de Vectorisation & Ingestion Qdrant RAMEAU
+# ⚙️ indexation-sujet-vectorisation : Pipeline de Vectorisation & Ingestion Qdrant RAMEAU
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/abesesr/iar.svg)](https://hub.docker.com/r/abesesr/iar/)
-[![Buildx Publish](https://github.com/abes-esr/iar-vectorisation/actions/workflows/buildx-pubtodockerhub.yml/badge.svg)](https://github.com/abes-esr/iar-vectorisation/actions/workflows/buildx-pubtodockerhub.yml)
+[![Docker Pulls](https://img.shields.io/docker/pulls/abesesr/indexation-sujet.svg)](https://hub.docker.com/r/abesesr/indexation-sujet/)
+[![Buildx Publish](https://github.com/abes-esr/indexation-sujet-vectorisation/actions/workflows/buildx-pubtodockerhub.yml/badge.svg)](https://github.com/abes-esr/indexation-sujet-vectorisation/actions/workflows/buildx-pubtodockerhub.yml)
 
-> 📌 **Rôle central du dépôt `iar-docker`** : Le dépôt [**iar-docker**](https://github.com/abes-esr/iar-docker) centralise l'état et le stockage de tous les services de la plateforme. En cas d'incident majeur ou de réinstallation complète d'un serveur, la restauration est opérée depuis ce dossier. Pour la restauration de l'application, veuillez vous référer à sa documentation : [iar-docker - Procédure de restauration globale](https://github.com/abes-esr/iar-docker#8-procédure-de-restauration-globale).
+> 📌 **Rôle central du dépôt `indexation-sujet-docker`** : Le dépôt [**indexation-sujet-docker**](https://github.com/abes-esr/indexation-sujet-docker) centralise l'état et le stockage de tous les services de la plateforme. En cas d'incident majeur ou de réinstallation complète d'un serveur, la restauration est opérée depuis ce dossier. Pour la restauration de l'application, veuillez vous référer à sa documentation : [indexation-sujet-docker - Procédure de restauration globale](https://github.com/abes-esr/indexation-sujet-docker#8-procédure-de-restauration-globale).
 
 ---
 
@@ -23,28 +23,29 @@
 
 ## 1. Description brève du projet
 
-**`iar-vectorisation`** est le composant de traitement par lots (*batch*) et d'ingestion vectorielle du projet **IAR** (**I**ndexation **A**utomatique **R**AMEAU), conçu et maintenu par l'**ABES** (Agence Bibliographique de l'Enseignement Supérieur).
+**`indexation-sujet-vectorisation`** est le composant de traitement par lots (_batch_) et d'ingestion vectorielle du projet **INDEXATION_SUJET** (**I**ndexation **A**utomatique **R**AMEAU), conçu et maintenu par l'**ABES** (Agence Bibliographique de l'Enseignement Supérieur).
 
-Ce module a pour mission de transformer les données bibliographiques et d'autorités RAMEAU issues du catalogue Sudoc en représentations vectorielles denses (*embeddings*) et d'alimenter la base de données vectorielle **Qdrant** :
+Ce module a pour mission de transformer les données bibliographiques et d'autorités RAMEAU issues du catalogue Sudoc en représentations vectorielles denses (_embeddings_) et d'alimenter la base de données vectorielle **Qdrant** :
+
 - **Extraction & encodage dense multi-modèles** : Calcul des vecteurs sémantiques via la bibliothèque [Sentence-Transformers](https://sbert.net/) (`all-MiniLM-L6-v2`, `distiluse-base-multilingual-cased-v2`, `multilingual-e5-large`).
 - **Explosion & agrégation par barycentre** : Décomposition des chaînes d'autorités en vedettes/concepts élémentaires (Unimarc `606`), regroupement de tous les documents associés à un même concept et calcul de la moyenne vectorielle afin d'établir l'empreinte sémantique unique de chaque vedette.
-- **Peuplement et optimisation Qdrant** : Création et alimentation des collections vectorielles avec quantification scalaire (`INT8`) maintenue en mémoire RAM pour garantir des temps de recherche sub-milliseconde lors de l'inférence par le composant [iar-api](https://github.com/abes-esr/iar-api).
+- **Peuplement et optimisation Qdrant** : Création et alimentation des collections vectorielles avec quantification scalaire (`INT8`) maintenue en mémoire RAM pour garantir des temps de recherche sub-milliseconde lors de l'inférence par le composant [indexation-sujet-api](https://github.com/abes-esr/indexation-sujet-api).
 - **Double mode d'exécution** : Un orchestrateur Web Service REST FastAPI ([`src/load_qdrant_ws.py`](./src/load_qdrant_ws.py)) permettant de piloter les traitements via Docker-out-of-Docker (DooD), et un script CLI autonome ([`src/rameau_vectorize.py`](./src/rameau_vectorize.py)) pour les exécutions directes en environnement de calcul haute performance (GPU CUDA).
 
 ---
 
 ## 2. Liens vers les autres parties du projet
 
-Le projet IAR est composé de plusieurs modules complémentaires hébergés sur l'organisation [abes-esr](https://github.com/abes-esr) :
+Le projet INDEXATION_SUJET est composé de plusieurs modules complémentaires hébergés sur l'organisation [abes-esr](https://github.com/abes-esr) :
 
-| Dépôt GitHub | Rôle & Description |
-| :--- | :--- |
-| [**iar-docker**](https://github.com/abes-esr/iar-docker) | Configuration Docker Compose pour le déploiement global de la plateforme (API, Qdrant, Ollama/vLLM). |
-| [**iar-api**](https://github.com/abes-esr/iar-api) | Service web backend d'inférence (FastAPI) exposant le service de suggestion d'indexation sujet RAMEAU. |
-| [**iar-vectorisation**](https://github.com/abes-esr/iar-vectorisation) | **Ce dépôt** : Pipeline de vectorisation batch des notices RAMEAU et de peuplement des collections Qdrant. |
-| [**iar-batch-docker**](https://github.com/abes-esr/iar-batch-docker) | Déploiement Docker pour les traitements par lots et les interfaces de mise à jour des données. |
-| [**iar-batch-dump**](https://github.com/abes-esr/iar-batch-dump) | Extraction, transformation et génération des dumps de données d'autorités RAMEAU et notices Sudoc. |
-| [**iar-script-winibw**](https://github.com/abes-esr/iar-script-winibw) | Script client (VBScript) s'intégrant au client lourd de catalogage **WinIBW** pour interroger l'API depuis le poste des catalogueurs. |
+| Dépôt GitHub                                                                                     | Rôle & Description                                                                                                                    |
+| :----------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
+| [**indexation-sujet-docker**](https://github.com/abes-esr/indexation-sujet-docker)               | Configuration Docker Compose pour le déploiement global de la plateforme (API, Qdrant, Ollama/vLLM).                                  |
+| [**indexation-sujet-api**](https://github.com/abes-esr/indexation-sujet-api)                     | Service web backend d'inférence (FastAPI) exposant le service de suggestion d'indexation sujet RAMEAU.                                |
+| [**indexation-sujet-vectorisation**](https://github.com/abes-esr/indexation-sujet-vectorisation) | **Ce dépôt** : Pipeline de vectorisation batch des notices RAMEAU et de peuplement des collections Qdrant.                            |
+| [**indexation-sujet-batch-docker**](https://github.com/abes-esr/indexation-sujet-batch-docker)   | Déploiement Docker pour les traitements par lots et les interfaces de mise à jour des données.                                        |
+| [**indexation-sujet-batch-dump**](https://github.com/abes-esr/indexation-sujet-batch-dump)       | Extraction, transformation et génération des dumps de données d'autorités RAMEAU et notices Sudoc.                                    |
+| [**indexation-sujet-script-winibw**](https://github.com/abes-esr/indexation-sujet-script-winibw) | Script client (VBScript) s'intégrant au client lourd de catalogage **WinIBW** pour interroger l'API depuis le poste des catalogueurs. |
 
 ---
 
@@ -53,7 +54,7 @@ Le projet IAR est composé de plusieurs modules complémentaires hébergés sur 
 ### Flux entrants :
 
 - **Fichiers d'export RAMEAU (Dumps CSV)** :
-  - Générés par le composant [iar-batch-dump](https://github.com/abes-esr/iar-batch-dump) (ou issus de la procédure Oracle de l'ABES `QE_EXPORT_RAMEAU`).
+  - Générés par le composant [indexation-sujet-batch-dump](https://github.com/abes-esr/indexation-sujet-batch-dump) (ou issus de la procédure Oracle de l'ABES `QE_EXPORT_RAMEAU`).
   - Déposés dans le répertoire partagé [`volumes/csv/`](./volumes/csv/) ou téléversés via l'API :
     - `export_rameau.csv` : Fichier de référence pour l'initialisation complète (`/init`).
     - `export_rameau_update.csv` : Fichier différentiel pour les mises à jour incrémentales (`/update`).
@@ -97,17 +98,17 @@ src/
 
 ### A. Web Service d'Orchestration REST (`load_qdrant_ws.py`)
 
-Le Web Service FastAPI écoute par défaut sur le port configuré par `IAR_VECTORISATION_PORT` (défaut `6381`, ou `8100` selon déploiement) et pilote l'exécution conteneurisée des traitements lourds sans bloquer le serveur web.
+Le Web Service FastAPI écoute par défaut sur le port configuré par `INDEXATION_SUJET_VECTORISATION_PORT` (défaut `6381`, ou `8100` selon déploiement) et pilote l'exécution conteneurisée des traitements lourds sans bloquer le serveur web.
 
 #### Endpoints disponibles :
 
-| Méthode | Route | Description |
-| :--- | :--- | :--- |
-| `GET` | `/health` | Sonde de santé applicative (Healthcheck). Renvoie `{"status": "ok"}`. |
-| `POST` / `GET` | `/init` | Déclenche l'initialisation complète du corpus vectoriel. Lance en parallèle un conteneur éphémère par modèle (`allMin`, `distiluse`, `e5-large`). |
-| `POST` / `GET` | `/update` | Déclenche la mise à jour incrémentale différentielle du corpus vectoriel pour les 3 modèles. |
-| `POST` | `/init/upload` | Téléverse un fichier CSV d'initialisation, le conforme sous `IAR_CSV_INIT_FILENAME` (`export_rameau.csv`), puis **déclenche automatiquement le pipeline d'initialisation** (`init`). |
-| `POST` | `/update/upload` | Téléverse un fichier CSV de mise à jour, le conforme sous `IAR_CSV_UPDATE_FILENAME` (`export_rameau_update.csv`), puis **déclenche automatiquement le pipeline de mise à jour** (`update`). |
+| Méthode        | Route            | Description                                                                                                                                                                                              |
+| :------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`          | `/health`        | Sonde de santé applicative (Healthcheck). Renvoie `{"status": "ok"}`.                                                                                                                                    |
+| `POST` / `GET` | `/init`          | Déclenche l'initialisation complète du corpus vectoriel. Lance en parallèle un conteneur éphémère par modèle (`allMin`, `distiluse`, `e5-large`).                                                        |
+| `POST` / `GET` | `/update`        | Déclenche la mise à jour incrémentale différentielle du corpus vectoriel pour les 3 modèles.                                                                                                             |
+| `POST`         | `/init/upload`   | Téléverse un fichier CSV d'initialisation, le conforme sous `INDEXATION_SUJET_CSV_INIT_FILENAME` (`export_rameau.csv`), puis **déclenche automatiquement le pipeline d'initialisation** (`init`).        |
+| `POST`         | `/update/upload` | Téléverse un fichier CSV de mise à jour, le conforme sous `INDEXATION_SUJET_CSV_UPDATE_FILENAME` (`export_rameau_update.csv`), puis **déclenche automatiquement le pipeline de mise à jour** (`update`). |
 
 #### Exemples d'appels `curl` :
 
@@ -140,19 +141,19 @@ python src/rameau_vectorize.py --action init --conceptsORchains concepts --alias
 
 #### Options en ligne de commande :
 
-| Option longue | Option courte | Valeurs acceptées | Défaut | Description |
-| :--- | :---: | :--- | :---: | :--- |
-| `--action` | `-a` | `init`, `update`, `auto`, `restore` | `update` | **Mode d'exécution** :<br>• `init` : Recalcul complet et écrasement de la collection Qdrant.<br>• `update` : Mise à jour différentielle à partir de l'archive existante.<br>• `auto` : Détection automatique (`init` ou `update`) basée sur les dates de modification des CSV.<br>• `restore` : Ré-ingestion directe dans Qdrant depuis l'archive `archive_*.pkl` sans ré-encoder les modèles. |
-| `--conceptsORchains` | `-c` | `concepts`, `chains` | `concepts` | **Typologie de découpage RAMEAU** :<br>• `concepts` : Vedettes élémentaires individuelles (ex. `Algèbre linéaire`).<br>• `chains` : Chaînes d'indexation complètes avec subdivisions (ex. `France -- Histoire -- 1789-1799`). |
-| `--alias_model` | `-m` | `allMin`, `distiluse`, `e5-large` | `allMin` | **Modèle d'embedding** :<br>• `allMin` : `all-MiniLM-L6-v2` (384 dim)<br>• `distiluse` : `distiluse-base-multilingual-cased-v2` (512 dim)<br>• `e5-large` : `intfloat/multilingual-e5-large` (1024 dim) |
-| `--avec_these` | `-t` | `only_mono`, `only_theses`, `with_theses` | `only_mono` | **Périmètre documentaire** :<br>• `only_mono` : Monographies imprimées/électroniques uniquement.<br>• `only_theses` : Thèses de doctorat uniquement.<br>• `with_theses` : Monographies et thèses confondues. |
-| `--csv_filename` | - | *Nom de fichier* | `""` | Nom ou chemin d'un CSV spécifique à traiter (ex. `test100.csv` pour un jeu de test). Par défaut, utilise les fichiers configurés dans `.env`. |
+| Option longue        | Option courte | Valeurs acceptées                         |   Défaut    | Description                                                                                                                                                                                                                                                                                                                                                                                    |
+| :------------------- | :-----------: | :---------------------------------------- | :---------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--action`           |     `-a`      | `init`, `update`, `auto`, `restore`       |  `update`   | **Mode d'exécution** :<br>• `init` : Recalcul complet et écrasement de la collection Qdrant.<br>• `update` : Mise à jour différentielle à partir de l'archive existante.<br>• `auto` : Détection automatique (`init` ou `update`) basée sur les dates de modification des CSV.<br>• `restore` : Ré-ingestion directe dans Qdrant depuis l'archive `archive_*.pkl` sans ré-encoder les modèles. |
+| `--conceptsORchains` |     `-c`      | `concepts`, `chains`                      | `concepts`  | **Typologie de découpage RAMEAU** :<br>• `concepts` : Vedettes élémentaires individuelles (ex. `Algèbre linéaire`).<br>• `chains` : Chaînes d'indexation complètes avec subdivisions (ex. `France -- Histoire -- 1789-1799`).                                                                                                                                                                  |
+| `--alias_model`      |     `-m`      | `allMin`, `distiluse`, `e5-large`         |  `allMin`   | **Modèle d'embedding** :<br>• `allMin` : `all-MiniLM-L6-v2` (384 dim)<br>• `distiluse` : `distiluse-base-multilingual-cased-v2` (512 dim)<br>• `e5-large` : `intfloat/multilingual-e5-large` (1024 dim)                                                                                                                                                                                        |
+| `--avec_these`       |     `-t`      | `only_mono`, `only_theses`, `with_theses` | `only_mono` | **Périmètre documentaire** :<br>• `only_mono` : Monographies imprimées/électroniques uniquement.<br>• `only_theses` : Thèses de doctorat uniquement.<br>• `with_theses` : Monographies et thèses confondues.                                                                                                                                                                                   |
+| `--csv_filename`     |       -       | _Nom de fichier_                          |    `""`     | Nom ou chemin d'un CSV spécifique à traiter (ex. `test100.csv` pour un jeu de test). Par défaut, utilise les fichiers configurés dans `.env`.                                                                                                                                                                                                                                                  |
 
 #### Règles de gestion appliquées par le script :
 
 1. **Nommage standardisé de la collection Qdrant** :  
    La collection créée dans Qdrant adopte la nomenclature stricte `{conceptsORchains}_{alias_model}_{avec_these}` (exemple : `concepts_allMin_only_mono`).
-2. **Garde-fou anti-écrasement (`IAR_QDRANT_MIN_VECTORS`)** :  
+2. **Garde-fou anti-écrasement (`INDEXATION_SUJET_QDRANT_MIN_VECTORS`)** :  
    Si le nombre de vecteurs générés est inférieur au seuil minimal (configuré à 1 000 en production, ajustable pour les tests), l'ingestion est immédiatement interrompue afin de ne pas vider une collection opérationnelle suite à un export CSV corrompu.
 3. **Quantification scalaire INT8** :  
    La collection est créée avec `type: INT8` et `always_ram: True`, réduisant l'empreinte mémoire d'un facteur 4 tout en préservant la précision cosinus.
@@ -165,24 +166,24 @@ python src/rameau_vectorize.py --action init --conceptsORchains concepts --alias
 
 Les variables d'environnement sont centralisées dans [`src/config.py`](./src/config.py) et chargées à partir du fichier `.env` (dérivé du modèle versionné [`.env-dist`](./.env-dist)).
 
-| Variable | Description | Exemple / Défaut | Contexte |
-| :--- | :--- | :--- | :--- |
-| `IAR_QDRANT_HOST` | Hôte ou nom de service réseau de l'instance Qdrant. | `localhost` (ou `qdrant`) | Connexion Qdrant |
-| `IAR_QDRANT_PORT` | Port de communication REST/gRPC de Qdrant. | `6333` | Connexion Qdrant |
-| `IAR_QDRANT_TEST_LIMIT` | Nombre de résultats retournés lors de la requête de test de conformité post-ingestion. | `6` | Test post-vol |
-| `IAR_QDRANT_MIN_VECTORS` | Seuil minimal de vecteurs requis pour autoriser l'écrasement d'une collection Qdrant. | `1000` (prod) / `10` (test) | Sécurité données |
-| `IAR_VECTORISATION_HOST` | Adresse IP d'écoute du serveur FastAPI / Uvicorn. | `0.0.0.0` | Web Service |
-| `IAR_VECTORISATION_PORT` | Port d'écoute du serveur Web Service d'orchestration. | `6381` (ou `8100`) | Web Service |
-| `IAR_DOCKER_VOLUME_BIND` | Chemin du répertoire hôte contenant les volumes à monter dans les conteneurs batch (`/app/data`). | `./volumes` | Docker batch |
-| `IAR_DOCKER_NETWORK` | Nom du réseau Docker partagé entre Qdrant et les conteneurs de vectorisation. | `mon_reseau` | Docker batch |
-| `IAR_DOCKER_IMAGE_BATCH` | Image Docker exécutée pour les tâches de calcul batch éphémères. | `rameau_vectorize_batch:latest` | Docker batch |
-| `IAR_DOCKER_SOCK` | URI du socket du démon Docker utilisé pour l'orchestration DooD. | `unix:///var/run/docker.sock` | Docker batch |
-| `IAR_DOCKER_BATCH_USER` | Utilisateur système exécutant le processus dans le conteneur batch. | `root` | Sécurité / Droits |
-| `IAR_CSV_INIT_FILENAME` | Nom du fichier CSV d'initialisation attendu dans `./volumes/csv/`. | `export_rameau.csv` | Données sources |
-| `IAR_CSV_UPDATE_FILENAME` | Nom du fichier CSV de mise à jour différentielle attendu dans `./volumes/csv/`. | `export_rameau_update.csv` | Données sources |
-| `IAR_VECTORIZE_CONCEPTS_OR_CHAINS` | Typologie de vedettes à vectoriser par défaut lors d'un appel à `/init` ou `/update`. | `concepts` | Paramétrage batch |
-| `IAR_VECTORIZE_AVEC_THESE` | Périmètre documentaire traité par défaut lors d'un appel à `/init` ou `/update`. | `only_mono` | Paramétrage batch |
-| `ENABLE_GPU` | Active l'allocation matérielle GPU NVIDIA (`--gpus all` / device requests) pour l'inférence PyTorch. | `false` (local) / `true` (serveur) | Performance |
+| Variable                                        | Description                                                                                          | Exemple / Défaut                   | Contexte          |
+| :---------------------------------------------- | :--------------------------------------------------------------------------------------------------- | :--------------------------------- | :---------------- |
+| `INDEXATION_SUJET_QDRANT_HOST`                  | Hôte ou nom de service réseau de l'instance Qdrant.                                                  | `localhost` (ou `qdrant`)          | Connexion Qdrant  |
+| `INDEXATION_SUJET_QDRANT_PORT`                  | Port de communication REST/gRPC de Qdrant.                                                           | `6333`                             | Connexion Qdrant  |
+| `INDEXATION_SUJET_QDRANT_TEST_LIMIT`            | Nombre de résultats retournés lors de la requête de test de conformité post-ingestion.               | `6`                                | Test post-vol     |
+| `INDEXATION_SUJET_QDRANT_MIN_VECTORS`           | Seuil minimal de vecteurs requis pour autoriser l'écrasement d'une collection Qdrant.                | `1000` (prod) / `10` (test)        | Sécurité données  |
+| `INDEXATION_SUJET_VECTORISATION_HOST`           | Adresse IP d'écoute du serveur FastAPI / Uvicorn.                                                    | `0.0.0.0`                          | Web Service       |
+| `INDEXATION_SUJET_VECTORISATION_PORT`           | Port d'écoute du serveur Web Service d'orchestration.                                                | `6381` (ou `8100`)                 | Web Service       |
+| `INDEXATION_SUJET_DOCKER_VOLUME_BIND`           | Chemin du répertoire hôte contenant les volumes à monter dans les conteneurs batch (`/app/data`).    | `./volumes`                        | Docker batch      |
+| `INDEXATION_SUJET_DOCKER_NETWORK`               | Nom du réseau Docker partagé entre Qdrant et les conteneurs de vectorisation.                        | `mon_reseau`                       | Docker batch      |
+| `INDEXATION_SUJET_DOCKER_IMAGE_BATCH`           | Image Docker exécutée pour les tâches de calcul batch éphémères.                                     | `rameau_vectorize_batch:latest`    | Docker batch      |
+| `INDEXATION_SUJET_DOCKER_SOCK`                  | URI du socket du démon Docker utilisé pour l'orchestration DooD.                                     | `unix:///var/run/docker.sock`      | Docker batch      |
+| `INDEXATION_SUJET_DOCKER_BATCH_USER`            | Utilisateur système exécutant le processus dans le conteneur batch.                                  | `root`                             | Sécurité / Droits |
+| `INDEXATION_SUJET_CSV_INIT_FILENAME`            | Nom du fichier CSV d'initialisation attendu dans `./volumes/csv/`.                                   | `export_rameau.csv`                | Données sources   |
+| `INDEXATION_SUJET_CSV_UPDATE_FILENAME`          | Nom du fichier CSV de mise à jour différentielle attendu dans `./volumes/csv/`.                      | `export_rameau_update.csv`         | Données sources   |
+| `INDEXATION_SUJET_VECTORIZE_CONCEPTS_OR_CHAINS` | Typologie de vedettes à vectoriser par défaut lors d'un appel à `/init` ou `/update`.                | `concepts`                         | Paramétrage batch |
+| `INDEXATION_SUJET_VECTORIZE_AVEC_THESE`         | Périmètre documentaire traité par défaut lors d'un appel à `/init` ou `/update`.                     | `only_mono`                        | Paramétrage batch |
+| `ENABLE_GPU`                                    | Active l'allocation matérielle GPU NVIDIA (`--gpus all` / device requests) pour l'inférence PyTorch. | `false` (local) / `true` (serveur) | Performance       |
 
 > [!CAUTION]
 > **Consigne de sécurité ABES** : Ne versionnez jamais le fichier `.env` contenant les configurations locales ou spécifiques aux serveurs. Seul [`.env-dist`](./.env-dist) doit être commité.
@@ -191,12 +192,12 @@ Les variables d'environnement sont centralisées dans [`src/config.py`](./src/co
 
 ## 6. Diagramme d'architecture
 
-Le diagramme suivant détaille le cycle de transformation de la donnée au sein d'`iar-vectorisation` et ses interactions avec l'environnement Docker et Qdrant :
+Le diagramme suivant détaille le cycle de transformation de la donnée au sein d'`indexation-sujet-vectorisation` et ses interactions avec l'environnement Docker et Qdrant :
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                                 SOURCES DE DONNÉES                                     │
-│  • Dumps CSV RAMEAU (iar-batch-dump / Oracle) dans ./volumes/csv/                      │
+│  • Dumps CSV RAMEAU (indexation-sujet-batch-dump / Oracle) dans ./volumes/csv/                      │
 │  • Modèles HuggingFace : all-MiniLM-L6-v2 (384d), distiluse (512d), e5-large (1024d)   │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │ Dépôt CSV ou upload HTTP multipart
@@ -249,8 +250,8 @@ Le diagramme suivant détaille le cycle de transformation de la donnée au sein 
 
 > ⚠️
 > **Architecture de déploiement ABES** :  
-> Sur les serveurs de test et de production de l'ABES (`donut-test` et `donut-prod`), **seul le dépôt [`iar-docker`](https://github.com/abes-esr/iar-docker)** est déployé sur les machines hôtes (dans `/opt/pod/iar-docker/`).  
-> Le composant `iar-vectorisation` est intégré sous forme d'image Docker précompilée (`abesesr/iar:*-vectorisation`).  
+> Sur les serveurs de test et de production de l'ABES (`donut-test` et `donut-prod`), **seul le dépôt [`indexation-sujet-docker`](https://github.com/abes-esr/indexation-sujet-docker)** est déployé sur les machines hôtes (dans `/opt/pod/indexation-sujet-docker/`).  
+> Le composant `indexation-sujet-vectorisation` est intégré sous forme d'image Docker précompilée (`abesesr/indexation-sujet:*-vectorisation`).  
 > Les procédures détaillées ci-après décrivent l'installation pour les développeurs, le build local et l'exécution conteneurisée autonome.
 
 ---
@@ -278,17 +279,17 @@ docker run -d --name qdrant \
 
 ```bash
 # 1. Cloner le dépôt et se positionner à la racine
-git clone https://github.com/abes-esr/iar-vectorisation.git
-cd iar-vectorisation
+git clone https://github.com/abes-esr/indexation-sujet-vectorisation.git
+cd indexation-sujet-vectorisation
 
 # 2. Copier le fichier d'environnement
 cp .env-dist .env
 
 # 3. Construire l'image applicative
-docker build -t iar-vectorisation .
+docker build -t indexation-sujet-vectorisation .
 
 # 4. Appliquer le tag requis pour les conteneurs éphémères déclenchés par le Web Service
-docker tag iar-vectorisation rameau_vectorize_batch:latest
+docker tag indexation-sujet-vectorisation rameau_vectorize_batch:latest
 ```
 
 #### 3. Démarrage du Web Service d'orchestration (`load_qdrant_ws.py`)
@@ -298,38 +299,39 @@ Le conteneur monte le socket Docker hôte afin de pouvoir instancier les sous-co
 ```bash
 # Sur Linux / macOS :
 docker run -d \
-  --name iar-vectorisation \
+  --name indexation-sujet-vectorisation \
   --user root \
   --network mon_reseau \
   -p 6381:8100 \
   --env-file .env \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$(pwd)/volumes":/app/data \
-  iar-vectorisation
+  indexation-sujet-vectorisation
 
 # Sur Windows PowerShell :
 docker run -d `
-  --name iar-vectorisation `
+  --name indexation-sujet-vectorisation `
   --user root `
   --network mon_reseau `
   -p 6381:8100 `
   --env-file .env `
   -v //var/run/docker.sock:/var/run/docker.sock `
   -v ${PWD}/volumes:/app/data `
-  iar-vectorisation
+  indexation-sujet-vectorisation
 ```
 
 #### 4. Exécution ponctuelle directe du batch en conteneur éphémère (`--rm`)
 
 Pour lancer un traitement complet en ligne de commande sans démarrer le serveur web :
 
-- **Avec accélération GPU NVIDIA** (strictement équivalent à la réservation `count: all` / `capabilities: [gpu]` définie dans le `docker-compose.yml` d'[iar-docker](https://github.com/abes-esr/iar-docker)) :
+- **Avec accélération GPU NVIDIA** (strictement équivalent à la réservation `count: all` / `capabilities: [gpu]` définie dans le `docker-compose.yml` d'[indexation-sujet-docker](https://github.com/abes-esr/indexation-sujet-docker)) :
+
   ```bash
   docker run --rm -it \
     --network mon_reseau \
     --gpus all \
     -v "$(pwd)/volumes":/app/data \
-    iar-vectorisation \
+    indexation-sujet-vectorisation \
     python rameau_vectorize.py --action init --conceptsORchains concepts --alias_model allMin --avec_these only_mono
   ```
 
@@ -338,7 +340,7 @@ Pour lancer un traitement complet en ligne de commande sans démarrer le serveur
   docker run --rm -it \
     --network mon_reseau \
     -v "$(pwd)/volumes":/app/data \
-    iar-vectorisation \
+    indexation-sujet-vectorisation \
     python rameau_vectorize.py --action init --conceptsORchains concepts --alias_model allMin --avec_these only_mono
   ```
 
@@ -349,6 +351,7 @@ Pour lancer un traitement complet en ligne de commande sans démarrer le serveur
 Pour développer et déboguer directement sans conteneur Docker :
 
 #### 1. Prérequis système
+
 - Python 3.10 ou supérieur
 - Carte graphique NVIDIA avec pilotes CUDA récents (recommandé pour la vitesse d'inférence)
 
@@ -377,12 +380,13 @@ pip install -r requirements.txt
 
 # 5. Configuration de l'environnement
 cp .env-dist .env
-# Adapter .env (régler IAR_QDRANT_HOST=localhost, ENABLE_GPU=true/false)
+# Adapter .env (régler INDEXATION_SUJET_QDRANT_HOST=localhost, ENABLE_GPU=true/false)
 ```
 
 #### 3. Lancement des composants en local
 
 - **Lancement du Web Service (mode rechargement à chaud)** :
+
   ```bash
   python -m uvicorn src.load_qdrant_ws:app --host 0.0.0.0 --port 6381 --reload
   ```
@@ -413,9 +417,10 @@ Les logs d'avancement des mini-lots de vectorisation et de création des fichier
 - **Serveur de Test ABES** : [`http://donut-test.abes.fr:29999/`](http://donut-test.abes.fr:29999/)
 - **Serveur de Production ABES** : [`http://donut-prod.abes.fr:29999/`](http://donut-prod.abes.fr:29999/)
 - **En ligne de commande Docker** :
+
   ```bash
   # Suivre les logs du web service
-  docker logs -f iar-vectorisation
+  docker logs -f indexation-sujet-vectorisation
 
   # Suivre les conteneurs batchs éphémères lancés
   docker ps -a --filter "ancestor=rameau_vectorize_batch:latest"
@@ -433,6 +438,7 @@ curl -f http://localhost:6381/health
 ### 4. Supervision globale et observabilité ABES
 
 Les métriques serveurs et conteneurs sont agrégées sur les instances Grafana de l'infrastructure ABES :
+
 - **Développement** : `http://diplotaxis7-dev.v212.abes.fr:3000`
 - **Test** : `http://diplotaxis7-test.v202.abes.fr:3000`
 - **Production** : `http://diplotaxis7-prod.v102.abes.fr:3000`
@@ -452,7 +458,7 @@ test/
 
 ### 1. Script de Vérification Pré-Vol (`test_preflight_checks.py`)
 
-Ce script s'assure que la machine dispose des prérequis matériels nécessaires (mémoire RAM suffisante pour charger les modèles volumineux comme `e5-large`) et valide la conformité des arguments passés en ligne de commande. Il prévient les arrêts brutaux dus aux dépassements de mémoire (*OOM Kill*) :
+Ce script s'assure que la machine dispose des prérequis matériels nécessaires (mémoire RAM suffisante pour charger les modèles volumineux comme `e5-large`) et valide la conformité des arguments passés en ligne de commande. Il prévient les arrêts brutaux dus aux dépassements de mémoire (_OOM Kill_) :
 
 ```bash
 python test/test_preflight_checks.py \
@@ -464,9 +470,9 @@ python test/test_preflight_checks.py \
 
 ---
 
-### 2. Données d'Évaluation & Prévention du *Data Leakage* (`test/data/test_data.csv`)
+### 2. Données d'Évaluation & Prévention du _Data Leakage_ (`test/data/test_data.csv`)
 
-Le fichier [`test/data/test_data.csv`](./test/data/test_data.csv) recense la liste stricte des PPN de notices bibliographiques réservés aux tests d'évaluation d'exactitude (*Top-1, Top-3, Top-5 accuracy*) exécutés dans [iar-api](https://github.com/abes-esr/iar-api).  
+Le fichier [`test/data/test_data.csv`](./test/data/test_data.csv) recense la liste stricte des PPN de notices bibliographiques réservés aux tests d'évaluation d'exactitude (_Top-1, Top-3, Top-5 accuracy_) exécutés dans [indexation-sujet-api](https://github.com/abes-esr/indexation-sujet-api).  
 Le pipeline de vectorisation garantit l'isolation de ces notices afin de préserver l'intégrité scientifique des benchmarks algorithmiques.
 
 ---
@@ -474,20 +480,26 @@ Le pipeline de vectorisation garantit l'isolation de ces notices afin de préser
 ### 3. Tests d'Intégration & Cohérence Sémantique
 
 #### Validation automatique en fin de pipeline :
+
 À l'issue de chaque exécution d'ingestion par [`src/rameau_vectorize.py`](./src/rameau_vectorize.py), une requête de test sur l'expression `"la radio"` est immédiatement soumise à la collection Qdrant créée. Le script valide que :
+
 - Des points sont renvoyés avec un score de similarité cosinus pertinent.
 - Les payloads associés contiennent des vedettes cohérentes (ex. `Radio`, `Radiodiffusion`).
 
 #### Validation des dimensions vectorielles :
+
 Les dimensions des collections Qdrant créées doivent strictement correspondre aux spécifications des modèles :
+
 - `concepts_allMin_only_mono` : **384** dimensions.
 - `concepts_distiluse_only_mono` : **512** dimensions.
 - `concepts_e5-large_only_mono` : **1024** dimensions.
 
 #### Procédure de test rapide sur échantillon réduit :
+
 Pour valider le bon fonctionnement de la chaîne complète sans traiter les 40 000 vedettes de la base RAMEAU :
+
 1. Déposer un fichier d'échantillon (ex. `test100.csv`) dans `./volumes/csv/`.
-2. Définir `IAR_QDRANT_MIN_VECTORS=10` dans votre fichier `.env`.
+2. Définir `INDEXATION_SUJET_QDRANT_MIN_VECTORS=10` dans votre fichier `.env`.
 3. Exécuter le batch avec l'option `--csv_filename` :
    ```bash
    python src/rameau_vectorize.py --action init --conceptsORchains concepts --alias_model allMin --avec_these only_mono --csv_filename test100.csv

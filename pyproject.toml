@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "iar-vectorisation"
+name = "indexation-sujet-vectorisation"
 version = "0.0.0"
 description = "Service de vectorisation RAMEAU et alimentation Qdrant"
 authors = ["ABES"]
