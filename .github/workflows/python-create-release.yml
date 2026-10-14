@@ -118,16 +118,17 @@ jobs:
           # S'assurer que la branche locale est parfaitement à jour avec le dépôt distant
           git pull origin $CURRENT_BRANCH --rebase
 
-          # 1. Mise à jour de la version de release dans pyproject.toml et README.md
-          poetry version $NEW_TAG || sed -i "s#^version = \".*\"#version = \"$NEW_TAG\"#g" pyproject.toml
-          sed -i "s#Version: [0-9]\+\.[0-9]\+\.[0-9]\+\(-SNAPSHOT\)\?#Version: $NEW_TAG#g" README.md
+          # 1. Mise à jour de la version de release dans pyproject.toml
+          if [ -f pyproject.toml ]; then
+            poetry version $NEW_TAG || sed -i "s#^version = \".*\"#version = \"$NEW_TAG\"#g" pyproject.toml
+          fi
 
           # 2. Validation et publication de la version de release.
           # Note : On évite 'git commit --amend' suivi d'un simple 'git push' car cela
           # réécrit l'historique local après avoir poussé le tag originel, provoquant des
           # rejets de push non-fast-forward. On commite directement avec '[skip ci]'.
           git add .
-          git commit -m "chore(release): 🔖 Version $NEW_TAG [skip ci]"
+          git diff-index --quiet HEAD || git commit -m "chore(release): 🔖 Version $NEW_TAG [skip ci]"
           git tag $NEW_TAG
           git push origin $CURRENT_BRANCH
           git push origin $NEW_TAG
@@ -138,11 +139,12 @@ jobs:
           git merge $CURRENT_BRANCH -m "chore(release): 🔀 Merge $CURRENT_BRANCH to develop [skip ci]"
 
           # 4. Mise à jour vers la nouvelle version SNAPSHOT sur develop
-          poetry version $NEW_SNAPSHOT_TAG || sed -i "s#^version = \".*\"#version = \"$NEW_SNAPSHOT_TAG\"#g" pyproject.toml
-          sed -i "s#Version: [0-9]\+\.[0-9]\+\.[0-9]\+\(-SNAPSHOT\)\?#Version: $NEW_SNAPSHOT_TAG#g" README.md
+          if [ -f pyproject.toml ]; then
+            poetry version $NEW_SNAPSHOT_TAG || sed -i "s#^version = \".*\"#version = \"$NEW_SNAPSHOT_TAG\"#g" pyproject.toml
+          fi
 
           git add .
-          git commit -m "chore(release): 🔖 Version $NEW_SNAPSHOT_TAG [skip ci]"
+          git diff-index --quiet HEAD || git commit -m "chore(release): 🔖 Version $NEW_SNAPSHOT_TAG [skip ci]"
 
           # 5. Création et fusion automatique d'une Pull Request pour 'develop' afin de respecter les règles de protection
           TEMP_BRANCH="release-snapshot-$NEW_SNAPSHOT_TAG"

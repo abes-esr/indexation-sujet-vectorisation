@@ -1,27 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-#docker
-'''
-sudo docker images
-docker network create mon_reseau
-sudo docker run -p 6333:6333  --network mon_reseau  -d -v /home/ubuntu/qdrant/data:/qdrant/storage     qdrant/qdrant
-sudo docker rmi -f 64d7215c2aa0
-
-pour le service web
-sudo docker run --network mon_reseau --gpus all -v /home/ubuntu/cbd/docker/rameau_service:/app -i -t -p 8069:8069 fb2dff3dae3b
-
-
-pour autoriser le repertoire en ecriture a ubuntu , sur le repertoire feire :
-sudo chown -R ubuntu: "$PWD"
-pour builder les eux
-sudo docker build -t rameau_service:v1 .
-sudo docker build -t rameau_vectorize_service:v1 .
- si pas root: sudo docker run --network mon_reseau --gpus all -v /home/ubuntu/cbd/docker/rameau_vectorize_service:/app -u $(id -u):$(id -g) -i -t -p 8100:8100 fb2dff3dae3b
-
- sudo docker run --network mon_reseau --gpus all -v /home/ubuntu/cbd/docker/rameau_vectorize_service:/app -u $(id -u):$(id -g) -i -t -p 8100:8100 fb2dff3dae3b
-pour recuperer le localhost de qdrant il faut faire un ifconfig recuperer l'ip du docker et le mettre dans global_init.ini
-'''
+"""
+Module de vectorisation batch et d'ingestion des autorités RAMEAU dans Qdrant.
+Calcule les représentations vectorielles (SentenceTransformers), agrège les barycentres
+par vedette-matière et insère les points dans Qdrant.
+"""
 
 # la procedure oracle de traitement sur la base xml est QE_EXPORT_RAMEAU
 # pour initier les serveurs ; 
@@ -48,10 +32,9 @@ import os
 import configparser
 import optparse
 import sys
-try:
-    import config
-except ImportError:
-    from src import config
+# Assure la résolution directe de config quel que soit le contexte d'exécution (racine ou src)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import config
 
 
 # In[5]:
@@ -59,11 +42,10 @@ except ImportError:
 def resolve_csv_path(filename: str) -> str:
     """
     Localise un fichier CSV selon l'ordre de priorité suivant:
-    1. Dans le dossier CSV configuré (ex: data/csv via config.CSV_DIR)
-    2. Dans le dossier de données applicatif (ex: data via config.APP_DATA_DIR)
-    3. Dans /app/data/csv ou /app/data
-    4. À la racine du conteneur (/app/) ou du répertoire local
-    5. Le chemin direct fourni
+    1. Dans /app/data/csv
+    2. Dans /app/data
+    3. Répertoires de secours ou relatifs
+    4. Le chemin direct fourni
 
     :param filename: Nom du fichier ou chemin (avec ou sans extension .csv)
     :return: Chemin résolu existant ou première cible par défaut
@@ -73,16 +55,13 @@ def resolve_csv_path(filename: str) -> str:
     else:
         filename_with_ext = filename
 
-    csv_dir = getattr(config, 'CSV_DIR', '/app/data/csv')
-    app_data_dir = getattr(config, 'APP_DATA_DIR', './app/data')
-
     candidate_paths = [
-        os.path.join(csv_dir, filename_with_ext),
-        os.path.join(app_data_dir, filename_with_ext),
         os.path.join('/app/data/csv', filename_with_ext),
         os.path.join('/app/data', filename_with_ext),
         os.path.join('/app', filename_with_ext),
         os.path.join('.', filename_with_ext),
+        os.path.join('./data/csv', filename_with_ext),
+        os.path.join('./data', filename_with_ext),
         filename_with_ext,
     ]
 
@@ -109,10 +88,14 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
     cwd = str(Path.cwd())
     print(cwd)
 
-    # Répertoire de stockage des fichiers .pkl et .ini
-    default_pkl_dir = '/app/data/pkl' if '/app' in cwd else './data/pkl'
-    pkl_dir = getattr(config, 'PKL_DIR', default_pkl_dir)
-    os.makedirs(pkl_dir, exist_ok=True)
+    # Répertoire de stockage des fichiers .pkl et .ini (standardisé à /app/data/pkl)
+    pkl_dir = '/app/data/pkl'
+    try:
+        os.makedirs(pkl_dir, exist_ok=True)
+    except OSError:
+        # Fallback pour exécution locale hors conteneur sans droits sur /app
+        pkl_dir = './data/pkl'
+        os.makedirs(pkl_dir, exist_ok=True)
     root = os.path.join(pkl_dir, '')
     root1 = pkl_dir
     print(f"Répertoire de stockage des fichiers PKL : {pkl_dir}")

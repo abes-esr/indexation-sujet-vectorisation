@@ -1,20 +1,26 @@
 import os
+import shutil
 import socket
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 import docker
-try:
-    import config
-except ImportError:
-    from src import config
+import sys
+from pathlib import Path
+
+# Assure la résolution directe de config quel que soit le contexte d'exécution (racine ou src)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import config
 
 app = FastAPI()
 
-@app.get("/")
-async def root():
+@app.get("/health")
+async def health():
     """
-    Sonde basique de disponibilité (Healthcheck).
+    Sonde de disponibilité applicative (Healthcheck).
+    Retourne le statut de fonctionnement du service.
+
+    :return: Dictionnaire indiquant le statut opérationnel ("ok").
     """
-    return {"hello": "world"}
+    return {"status": "ok"}
 
 def run_vectorization_pipeline(action: str) -> dict:
     """
@@ -36,7 +42,15 @@ def run_vectorization_pipeline(action: str) -> dict:
 
     try:
         client = docker.DockerClient(base_url=config.DOCKER_SOCK)
-        device_requests = [docker.types.DeviceRequest(device_ids=['0'], capabilities=[['gpu']])] if config.ENABLE_GPU else None
+
+        # Alignement strict sur la réservation GPU d'indexation-sujet-docker (driver: nvidia, count: all, capabilities: [gpu])
+        device_requests = [
+            docker.types.DeviceRequest(
+                driver="nvidia",
+                count=-1,
+                capabilities=[["gpu"]],
+            )
+        ] if config.ENABLE_GPU else None
 
         # Détection automatique du chemin de volume hôte monté sur /app/data
         volume_bind = None
@@ -46,7 +60,7 @@ def run_vectorization_pipeline(action: str) -> dict:
                 try:
                     current_container = client.containers.get(hostname)
                 except Exception:
-                    current_container = client.containers.get("iar-vectorisation")
+                    current_container = client.containers.get("indexation-sujet-vectorisation")
 
                 for mount in current_container.attrs.get("Mounts", []):
                     if mount.get("Destination") == "/app/data":
@@ -61,17 +75,14 @@ def run_vectorization_pipeline(action: str) -> dict:
 
         # Transmission des variables d'environnement au conteneur batch
         batch_env = {
-            "QDRANT_HOST": config.QDRANT_HOST,
-            "QDRANT_PORT": str(config.QDRANT_PORT),
-            "QDRANT_TEST_LIMIT": str(getattr(config, "QDRANT_TEST_LIMIT", 6)),
-            "QDRANT_MIN_VECTORS": str(getattr(config, "QDRANT_MIN_VECTORS", 1000)),
-            "APP_DATA_DIR": config.APP_DATA_DIR,
-            "CSV_DIR": config.CSV_DIR,
-            "PKL_DIR": config.PKL_DIR,
-            "CSV_INIT_FILENAME": config.CSV_INIT_FILENAME,
-            "CSV_UPDATE_FILENAME": config.CSV_UPDATE_FILENAME,
-            "VECTORIZE_CONCEPTS_OR_CHAINS": config.VECTORIZE_CONCEPTS_OR_CHAINS,
-            "VECTORIZE_AVEC_THESE": config.VECTORIZE_AVEC_THESE,
+            "INDEXATION_SUJET_QDRANT_HOST": config.QDRANT_HOST,
+            "INDEXATION_SUJET_QDRANT_PORT": str(config.QDRANT_PORT),
+            "INDEXATION_SUJET_QDRANT_TEST_LIMIT": str(getattr(config, "QDRANT_TEST_LIMIT", 6)),
+            "INDEXATION_SUJET_QDRANT_MIN_VECTORS": str(getattr(config, "QDRANT_MIN_VECTORS", 1000)),
+            "INDEXATION_SUJET_CSV_INIT_FILENAME": config.CSV_INIT_FILENAME,
+            "INDEXATION_SUJET_CSV_UPDATE_FILENAME": config.CSV_UPDATE_FILENAME,
+            "INDEXATION_SUJET_VECTORIZE_CONCEPTS_OR_CHAINS": config.VECTORIZE_CONCEPTS_OR_CHAINS,
+            "INDEXATION_SUJET_VECTORIZE_AVEC_THESE": config.VECTORIZE_AVEC_THESE,
         }
 
         launched_containers = []
@@ -97,6 +108,10 @@ def run_vectorization_pipeline(action: str) -> dict:
                 },
                 "detach": True
             }
+            batch_user = getattr(config, "DOCKER_BATCH_USER", "root")
+            if batch_user:
+                run_kwargs["user"] = batch_user
+
             if device_requests:
                 run_kwargs["device_requests"] = device_requests
 
@@ -150,6 +165,98 @@ async def update_vectorization():
     Les paramètres sont issus de la configuration (config.py / .env).
     """
     return run_vectorization_pipeline("update")
+
+
+def save_uploaded_csv(file: UploadFile, target_filename: str) -> dict:
+    """
+    Enregistre un fichier CSV uploadé en flux continu dans le répertoire cible (/app/data/csv).
+    Le fichier est obligatoirement conformé sous le nom target_filename et écrase l'éventuel fichier précédent.
+
+    :param file: Fichier UploadFile transmis via FastAPI.
+    :param target_filename: Nom de fichier cible imposé (ex: config.CSV_INIT_FILENAME ou config.CSV_UPDATE_FILENAME).
+    :return: Dictionnaire contenant les métadonnées de l'opération ou le message d'erreur.
+    """
+    try:
+        csv_dir = getattr(config, "CSV_DIR", "/app/data/csv")
+        try:
+            os.makedirs(csv_dir, exist_ok=True)
+        except OSError:
+            # Repli pour exécution locale hors conteneur sans privilèges sur /app
+            csv_dir = os.path.join(".", "data", "csv")
+            os.makedirs(csv_dir, exist_ok=True)
+
+        # Conformation du nom de fichier cible
+        clean_filename = target_filename if target_filename.endswith(".csv") else f"{target_filename}.csv"
+        destination_path = os.path.join(csv_dir, clean_filename)
+
+        # Écriture par flux (streaming) pour supporter les fichiers volumineux sans saturer la mémoire RAM
+        # Le mode "wb" écrase automatiquement le fichier existant
+        with open(destination_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        return {
+            "status": "success",
+            "filename": clean_filename,
+            "original_filename": file.filename,
+            "message": f"Fichier enregistré sous '{clean_filename}'",
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Erreur lors de l'enregistrement du fichier CSV: {str(e)}",
+        }
+
+
+@app.post("/init/upload")
+async def upload_init_file(file: UploadFile = File(...)):
+    """
+    Upload du fichier CSV pour l'initialisation RAMEAU (/init) et lancement automatique
+    du pipeline de vectorisation d'initialisation complet (un conteneur batch par modèle).
+    Conforme le nom du fichier vers config.CSV_INIT_FILENAME (par défaut 'export_rameau.csv'),
+    écrase le fichier précédent dans /app/data/csv, puis déclenche immédiatement l'initialisation.
+
+    Exemple d'utilisation :
+    curl -X POST -F "file=@mon_export.csv" http://localhost:8100/init/upload
+
+    :param file: Fichier CSV transmis en multipart/form-data.
+    :return: Dictionnaire confirmant la sauvegarde et le résultat du lancement du pipeline.
+    """
+    upload_result = save_uploaded_csv(file, config.CSV_INIT_FILENAME)
+    if upload_result.get("status") != "success":
+        return upload_result
+
+    pipeline_result = run_vectorization_pipeline("init")
+    return {
+        "status": pipeline_result.get("status", "success"),
+        "upload": upload_result,
+        "pipeline": pipeline_result,
+    }
+
+
+@app.post("/update/upload")
+async def upload_update_file(file: UploadFile = File(...)):
+    """
+    Upload du fichier CSV pour la mise à jour différentielle RAMEAU (/update) et lancement
+    automatique du pipeline de vectorisation incrémentale (un conteneur batch par modèle).
+    Conforme le nom du fichier vers config.CSV_UPDATE_FILENAME (par défaut 'export_rameau_update.csv'),
+    écrase le fichier précédent dans /app/data/csv, puis déclenche immédiatement la mise à jour.
+
+    Exemple d'utilisation :
+    curl -X POST -F "file=@mon_delta.csv" http://localhost:8100/update/upload
+
+    :param file: Fichier CSV transmis en multipart/form-data.
+    :return: Dictionnaire confirmant la sauvegarde et le résultat du lancement du pipeline.
+    """
+    upload_result = save_uploaded_csv(file, config.CSV_UPDATE_FILENAME)
+    if upload_result.get("status") != "success":
+        return upload_result
+
+    pipeline_result = run_vectorization_pipeline("update")
+    return {
+        "status": pipeline_result.get("status", "success"),
+        "upload": upload_result,
+        "pipeline": pipeline_result,
+    }
 
 
 if __name__ == "__main__":
