@@ -244,13 +244,13 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         print("")
         print("")
         print(f"chargement fichier tabulé: {resolved_csv_path} et preparation")
-        training_data=pd.read_csv(resolved_csv_path,sep='\t',header=None, names=columns)
+        training_data=pd.read_csv(resolved_csv_path,sep='\t',header=None, names=columns, quoting=3, keep_default_na=False)
         #supprime mono
         if (avec_these =='only_theses'):
-            training_data=training_data[training_data.THESE.notnull()]
+            training_data = training_data[training_data['THESE'].str.strip() != '']
         #supprime theses
         if (avec_these =='only_mono'):
-            training_data=training_data[training_data.THESE.isnull()]
+            training_data = training_data[training_data['THESE'].str.strip() == '']
         #on prepare pour pouvoir spliter 
         if (conceptsORchains == 'concepts'):
             training_data['RAMEAU'] = training_data['RAMEAU'].apply(encode_concepts)
