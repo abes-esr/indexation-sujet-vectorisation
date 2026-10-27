@@ -106,7 +106,8 @@ def run_vectorization_pipeline(action: str) -> dict:
                         "mode": "rw",
                     }
                 },
-                "detach": True
+                "detach": True,
+                "auto_remove": True, #Suppression automatique à la fin du conteneur
             }
             batch_user = getattr(config, "DOCKER_BATCH_USER", "root")
             if batch_user:

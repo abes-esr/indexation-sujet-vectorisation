@@ -4,3 +4,5 @@ labo
 volumes
 venv
 !.env-dist
+/src/data
+/src/__pycache__
