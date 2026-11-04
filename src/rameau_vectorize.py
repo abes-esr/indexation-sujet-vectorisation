@@ -74,13 +74,14 @@ def resolve_csv_path(filename: str) -> str:
     return candidate_paths[0]
 
 
-def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in=None):
+def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in=None, lang='all'):
     """
     Orchestration principale du pipeline de vectorisation batch.
     Calcule les représentations vectorielles, agrège les moyennes et alimente Qdrant.
 
     :param action_in: Mode d'exécution ('init', 'update', 'auto', 'restore').
     :param conceptsORchains: Typologie ('concepts' ou 'chains').
+    :param lang: Filtre de langue ('fr', 'all').
     :param alias_model: Identifiant court du modèle d'embedding ('allMin', 'distiluse', 'e5-large').
     :param avec_these: Périmètre documentaire ('only_mono', 'only_theses', 'with_theses').
     :param csv_filename_in: Nom ou chemin optionnel du fichier CSV d'entrée.
@@ -130,9 +131,16 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
     #pour plus de prcision et si assez de memoire alors mettre 100
     nb_lots_de_moyenne=100
     
-    bibprepared_filename = train_filename+"_"+conceptsORchains+'_'+alias_model+'_'+avec_these
-    
-    RameauVectors = conceptsORchains+'_'+alias_model+'_'+avec_these
+    # Nom de base des collections Qdrant et des fichiers .pkl/.ini.
+    # 'all' conserve le nom historique (compatibilité iar-api) ; 'fr' insère '_fr' AVANT avec_these
+    # pour que les glob 'df_xxx_'+RameauVectors+'*.pkl' d'une variante ne capturent jamais
+    # les fichiers d'une autre variante tournant en parallèle sur le même volume.
+    lang_tag = '_fr' if lang == 'fr' else ''
+    vectors_name = conceptsORchains+'_'+alias_model+lang_tag+'_'+avec_these
+
+    bibprepared_filename = train_filename+"_"+vectors_name
+
+    RameauVectors = vectors_name
     try:
         date_init_file = str(datetime.fromtimestamp(os.path.getmtime(path_init_file)))
     except:
@@ -251,6 +259,9 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         #supprime theses
         if (avec_these =='only_mono'):
             training_data=training_data[training_data.THESE.isnull()]
+        #garde uniquement les notices en français (y compris multilingues, ex: 'fre : eng')
+        if (lang == 'fr'):
+            training_data=training_data[training_data['lang'].astype(str).str.contains('fre', na=False)]
         #on prepare pour pouvoir spliter 
         if (conceptsORchains == 'concepts'):
             training_data['RAMEAU'] = training_data['RAMEAU'].apply(encode_concepts)
@@ -690,7 +701,7 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         print("")
         print("")
         print("")
-        collection_name = conceptsORchains+'_'+alias_model+'_'+avec_these
+        collection_name = vectors_name
         print("")
         print("qdrant delete collection..")
         print(collection_name)
@@ -749,12 +760,12 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
 
         if hasattr(client, "upload_points"):
             client.upload_points(
-                collection_name=conceptsORchains+'_'+alias_model+'_'+avec_these,
+                collection_name,
                 points=points
             )
         else:
             client.upload_records(
-                collection_name=conceptsORchains+'_'+alias_model+'_'+avec_these,
+                collection_name,
                 records=points
             )
     
@@ -808,14 +819,14 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
 
         if hasattr(client, "query_points"):
             response = client.query_points(
-                collection_name=collection,
+                collection_name,
                 query=query_vector,
                 limit=test_limit
             )
             hits = response.points
         elif hasattr(client, "search"):
             hits = client.search(
-                collection_name=collection,
+                collection_name,
                 query_vector=query_vector,
                 limit=test_limit
             )
@@ -845,6 +856,7 @@ def main():
         p.add_option('--alias_model', '-m', default="allMin")
         p.add_option('--avec_these', '-t', default="only_mono")
         p.add_option('--csv_filename', default="")
+        p.add_option('--lang', '-l', default="all")
         options, arguments = p.parse_args()
         ok =True
         if options.action not in ['init','update','auto','restore']:
@@ -854,7 +866,7 @@ def main():
         if options.conceptsORchains not in ['concepts','chains']:
             print ('conceptsORchains doit avoir :concepts ou chains')
             ok =False
-            quit() 
+            quit()
         if options.alias_model not in ['allMin','distiluse','e5-large']:
             print ('alias_model doit avoir :allMin, distiluse ou e5-large')
             ok =False
@@ -863,9 +875,13 @@ def main():
             print ('avec_these doit avoir :only_mono, only_theses ou with_theses')
             ok =False
             quit()
+        if options.lang not in ['fr','all']:
+            print ('lang doit avoir :fr ou all')
+            ok =False
+            quit()
 
         if ok==True:
-            launch(options.action, options.conceptsORchains, options.alias_model, options.avec_these, options.csv_filename)
+            launch(options.action, options.conceptsORchains, options.alias_model, options.avec_these, options.csv_filename, options.lang)
     except BaseException as e:
         print('Failed to do something: ' + str(e))
         raise
