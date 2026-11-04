@@ -259,6 +259,10 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         #supprime theses
         if (avec_these =='only_mono'):
             training_data=training_data[training_data.THESE.isnull()]
+
+        training_data['RESUME'] = training_data['RESUME'].fillna('').apply(lambda x: re.split(r' ____ ', x))
+        training_data = training_data.explode("RESUME")
+        
         #garde uniquement les notices en français (y compris multilingues, ex: 'fre : eng')
         if (lang == 'fr'):
             training_data=training_data[training_data['lang'].astype(str).str.contains('fre', na=False)]
