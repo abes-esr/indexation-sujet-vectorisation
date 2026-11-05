@@ -20,6 +20,7 @@ par vedette-matière et insère les points dans Qdrant.
 # python wided-test_cbd3.py
 #pour tester http://152.228.161.151:8068/subject_indexation/?docId=NULL&Title=la%20radio&Summary=&models=victor1_concept,victor2,victor3_chain&aggregationType=intersection2models,llm&subjects&MaxCount=6&Agent=RCR&vocabulary=rameau&Format=text
 
+import csv
 import re
 from qdrant_client import models, QdrantClient
 from sentence_transformers import SentenceTransformer
@@ -244,7 +245,7 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         print("")
         print("")
         print(f"chargement fichier tabulé: {resolved_csv_path} et preparation")
-        training_data=pd.read_csv(resolved_csv_path,sep='\t',header=None, names=columns)
+        training_data=pd.read_csv(resolved_csv_path,sep='\t',header=None, names=columns, quoting=csv.QUOTE_NONE, on_bad_lines='warn')
         #supprime mono
         if (avec_these =='only_theses'):
             training_data=training_data[training_data.THESE.notnull()]
