@@ -4,3 +4,4 @@ labo
 volumes
 venv
 !.env-dist
+.idea

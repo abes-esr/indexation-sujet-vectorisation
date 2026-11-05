@@ -24,7 +24,12 @@ CSV_INIT_FILENAME = os.getenv("INDEXATION_SUJET_CSV_INIT_FILENAME", "export_rame
 CSV_UPDATE_FILENAME = os.getenv("INDEXATION_SUJET_CSV_UPDATE_FILENAME", "export_rameau_update.csv")
 
 # Paramètres par défaut pour les pipelines de vectorisation (/init et /update)
-VECTORIZE_CONCEPTS_OR_CHAINS = os.getenv("INDEXATION_SUJET_VECTORIZE_CONCEPTS_OR_CHAINS", "concepts")
+VECTORIZE_CONCEPTS_OR_CHAINS = [
+    v.strip() for v in (os.getenv("INDEXATION_SUJET_VECTORIZE_CONCEPTS_OR_CHAINS") or "concepts,chains").split(",") if v.strip()
+]
+VECTORIZE_LANGS = [
+    v.strip() for v in (os.getenv("INDEXATION_SUJET_VECTORIZE_LANGS") or "fr,all").split(",") if v.strip()
+]
 VECTORIZE_AVEC_THESE = os.getenv("INDEXATION_SUJET_VECTORIZE_AVEC_THESE", "only_mono")
 MODELS = ["allMin", "distiluse", "e5-large"]
 

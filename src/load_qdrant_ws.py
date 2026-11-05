@@ -33,12 +33,28 @@ def run_vectorization_pipeline(action: str) -> dict:
     :param action: Action à exécuter ('init' ou 'update').
     :return: Dictionnaire contenant le statut et les détails d'exécution de chaque conteneur.
     """
-    concepts_or_chains = config.VECTORIZE_CONCEPTS_OR_CHAINS
     avec_these = config.VECTORIZE_AVEC_THESE
     csv_filename = config.CSV_INIT_FILENAME if action == "init" else config.CSV_UPDATE_FILENAME
     models_to_run = getattr(config, "MODELS", ["allMin", "distiluse", "e5-large"])
 
-    print(f"Lancement de la vectorisation conteneurisée (action={action}) pour les modèles: {models_to_run}")
+    # Validation stricte des valeurs (elles finissent dans la ligne de commande des conteneurs)
+    invalid = [v for v in config.VECTORIZE_CONCEPTS_OR_CHAINS if v not in ("concepts", "chains")]
+    invalid += [v for v in config.VECTORIZE_LANGS if v not in ("fr", "all")]
+    if invalid or not config.VECTORIZE_CONCEPTS_OR_CHAINS or not config.VECTORIZE_LANGS:
+        return {
+            "status": "error",
+            "message": f"Configuration invalide (concepts/chains ou langs) : {invalid or 'liste vide'}",
+        }
+
+    combinations = [
+        (model, concepts_or_chains, lang)
+        for concepts_or_chains in config.VECTORIZE_CONCEPTS_OR_CHAINS
+        for lang in config.VECTORIZE_LANGS
+        for model in models_to_run
+    ]
+
+    print(f"Lancement de la vectorisation conteneurisée (action={action}) : {len(combinations)} conteneurs "
+          f"(modèles={models_to_run}, typologies={config.VECTORIZE_CONCEPTS_OR_CHAINS}, langues={config.VECTORIZE_LANGS})")
 
     try:
         client = docker.DockerClient(base_url=config.DOCKER_SOCK)
@@ -78,20 +94,17 @@ def run_vectorization_pipeline(action: str) -> dict:
             "INDEXATION_SUJET_QDRANT_HOST": config.QDRANT_HOST,
             "INDEXATION_SUJET_QDRANT_PORT": str(config.QDRANT_PORT),
             "INDEXATION_SUJET_QDRANT_TEST_LIMIT": str(getattr(config, "QDRANT_TEST_LIMIT", 6)),
-            "INDEXATION_SUJET_QDRANT_MIN_VECTORS": str(getattr(config, "QDRANT_MIN_VECTORS", 1000)),
-            "INDEXATION_SUJET_CSV_INIT_FILENAME": config.CSV_INIT_FILENAME,
-            "INDEXATION_SUJET_CSV_UPDATE_FILENAME": config.CSV_UPDATE_FILENAME,
-            "INDEXATION_SUJET_VECTORIZE_CONCEPTS_OR_CHAINS": config.VECTORIZE_CONCEPTS_OR_CHAINS,
-            "INDEXATION_SUJET_VECTORIZE_AVEC_THESE": config.VECTORIZE_AVEC_THESE,
+            "INDEXATION_SUJET_QDRANT_MIN_VECTORS": str(getattr(config, "QDRANT_MIN_VECTORS", 1000))
         }
 
         launched_containers = []
-        for model in models_to_run:
+        for model, concepts_or_chains, lang in combinations:
             command_args = [
                 "python", "rameau_vectorize.py",
                 "--action", action,
                 "--conceptsORchains", concepts_or_chains,
                 "--alias_model", model,
+                "--lang", lang,
                 "--avec_these", avec_these,
                 "--csv_filename", csv_filename
             ]
@@ -127,9 +140,11 @@ def run_vectorization_pipeline(action: str) -> dict:
                 else:
                     raise launch_err
 
-            print(f"Conteneur batch lancé pour le modèle '{model}' : ID={container.short_id}")
+            print(f"Conteneur batch lancé pour le modèle '{model}', '{concepts_or_chains}', '{lang}' : ID={container.short_id}")
             launched_containers.append({
                 "model": model,
+                "concepts_or_chains": concepts_or_chains,
+                "lang": lang,
                 "container_id": container.short_id,
                 "command": command_args
             })
