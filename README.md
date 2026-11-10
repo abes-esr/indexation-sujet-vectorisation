@@ -30,7 +30,7 @@ Ce module a pour mission de transformer les données bibliographiques et d'autor
 - **Extraction & encodage dense multi-modèles** : Calcul des vecteurs sémantiques via la bibliothèque [Sentence-Transformers](https://sbert.net/) (`all-MiniLM-L6-v2`, `distiluse-base-multilingual-cased-v2`, `multilingual-e5-large`).
 - **Explosion & agrégation par barycentre** : Décomposition des chaînes d'autorités en vedettes/concepts élémentaires (Unimarc `606`), regroupement de tous les documents associés à un même concept et calcul de la moyenne vectorielle afin d'établir l'empreinte sémantique unique de chaque vedette.
 - **Peuplement et optimisation Qdrant** : Création et alimentation des collections vectorielles avec quantification scalaire (`INT8`) maintenue en mémoire RAM pour garantir des temps de recherche sub-milliseconde lors de l'inférence par le composant [indexation-sujet-api](https://github.com/abes-esr/indexation-sujet-api).
-- **Double mode d'exécution** : Un orchestrateur Web Service REST FastAPI ([`src/load_qdrant_ws.py`](./src/load_qdrant_ws.py)) permettant de piloter les traitements via Docker-out-of-Docker (DooD), et un script CLI autonome ([`src/rameau_vectorize.py`](./src/rameau_vectorize.py)) pour les exécutions directes en environnement de calcul haute performance (GPU CUDA).
+- **Double mode d'exécution** : Un orchestrateur Web Service REST FastAPI ([`src/load_qdrant_ws.py`](./src/load_qdrant_ws.py)) permettant de piloter les traitements (exécutés en sous-processus dans le conteneur du service), et un script CLI autonome ([`src/rameau_vectorize.py`](./src/rameau_vectorize.py)) pour les exécutions directes en environnement de calcul haute performance (GPU CUDA).
 
 ---
 
@@ -65,8 +65,6 @@ Le projet INDEXATION_SUJET est composé de plusieurs modules complémentaires h�
     - `intfloat/multilingual-e5-large` (alias `e5-large`, dimension 1024)
 - **Requêtes HTTP d'orchestration (REST)** :
   - Déclenchement d'initialisation, de mise à jour ou téléversement de fichiers multipart vers le web service [`src/load_qdrant_ws.py`](./src/load_qdrant_ws.py).
-- **Socket Docker de l'hôte** (`/var/run/docker.sock`) :
-  - Ordres de création et d'exécution de conteneurs de calcul éphémères en mode Docker-out-of-Docker (DooD).
 
 ### Flux sortants :
 
@@ -90,7 +88,7 @@ Le projet s'articule autour de deux composants logiciels situés dans le répert
 ```text
 src/
 ├── config.py             # Centralisation des variables d'environnement et chemins
-├── load_qdrant_ws.py     # Web Service REST FastAPI d'orchestration Docker batch
+├── load_qdrant_ws.py     # Web Service REST FastAPI d'orchestration des traitements batch
 └── rameau_vectorize.py   # Moteur CLI de vectorisation batch et d'ingestion Qdrant
 ```
 
@@ -98,15 +96,16 @@ src/
 
 ### A. Web Service d'Orchestration REST (`load_qdrant_ws.py`)
 
-Le Web Service FastAPI écoute par défaut sur le port configuré par `INDEXATION_SUJET_VECTORISATION_PORT` (défaut `6381`, ou `8100` selon déploiement) et pilote l'exécution conteneurisée des traitements lourds sans bloquer le serveur web.
+Le Web Service FastAPI écoute par défaut sur le port configuré par `INDEXATION_SUJET_VECTORISATION_PORT` (défaut `6381`, ou `8100` selon déploiement) et exécute les traitements lourds en sous-processus `rameau_vectorize.py` (un par combinaison modèle × typologie × langue, soit 12 avec la configuration par défaut) dans une file d'attente en arrière-plan, sans bloquer le serveur web. Au plus `INDEXATION_SUJET_VECTORIZE_MAX_PARALLEL` sous-processus tournent simultanément ; la mémoire et les CPU globaux sont bornés par les limites du conteneur (`mem_limit` / `cpus`).
 
 #### Endpoints disponibles :
 
 | Méthode        | Route            | Description                                                                                                                                                                                              |
 | :------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET`          | `/health`        | Sonde de santé applicative (Healthcheck). Renvoie `{"status": "ok"}`.                                                                                                                                    |
-| `POST` / `GET` | `/init`          | Déclenche l'initialisation complète du corpus vectoriel. Lance en parallèle un conteneur éphémère par modèle (`allMin`, `distiluse`, `e5-large`).                                                        |
+| `POST` / `GET` | `/init`          | Déclenche l'initialisation complète du corpus vectoriel. Met en file un sous-processus par combinaison modèle × typologie × langue. Refusé si un pipeline est déjà en cours. |
 | `POST` / `GET` | `/update`        | Déclenche la mise à jour incrémentale différentielle du corpus vectoriel pour les 3 modèles.                                                                                                             |
+| `GET`          | `/status`        | État du pipeline en cours ou du dernier exécuté : statut de chaque traitement (`queued`, `running`, `success`, `failed`) et code de sortie. |
 | `POST`         | `/init/upload`   | Téléverse un fichier CSV d'initialisation, le conforme sous `INDEXATION_SUJET_CSV_INIT_FILENAME` (`export_rameau.csv`), puis **déclenche automatiquement le pipeline d'initialisation** (`init`).        |
 | `POST`         | `/update/upload` | Téléverse un fichier CSV de mise à jour, le conforme sous `INDEXATION_SUJET_CSV_UPDATE_FILENAME` (`export_rameau_update.csv`), puis **déclenche automatiquement le pipeline de mise à jour** (`update`). |
 
@@ -127,13 +126,16 @@ curl -X POST http://localhost:6381/init
 
 # Déclencher manuellement une mise à jour différentielle (sans ré-uploader)
 curl -X POST http://localhost:6381/update
+
+# Suivre l'avancement du pipeline
+curl -s http://localhost:6381/status
 ```
 
 ---
 
 ### B. Pipeline CLI de Vectorisation Batch (`rameau_vectorize.py`)
 
-Le script [`src/rameau_vectorize.py`](./src/rameau_vectorize.py) constitue le moteur de calcul haute performance. Il peut être lancé directement en ligne de commande (sur l'hôte ou dans un conteneur éphémère) :
+Le script [`src/rameau_vectorize.py`](./src/rameau_vectorize.py) constitue le moteur de calcul haute performance. Il peut être lancé directement en ligne de commande (sur l'hôte ou dans un conteneur) :
 
 ```bash
 python src/rameau_vectorize.py --action init --conceptsORchains concepts --alias_model allMin --avec_these only_mono
@@ -174,16 +176,12 @@ Les variables d'environnement sont centralisées dans [`src/config.py`](./src/co
 | `INDEXATION_SUJET_QDRANT_MIN_VECTORS`           | Seuil minimal de vecteurs requis pour autoriser l'écrasement d'une collection Qdrant.                | `1000` (prod) / `10` (test)        | Sécurité données  |
 | `INDEXATION_SUJET_VECTORISATION_HOST`           | Adresse IP d'écoute du serveur FastAPI / Uvicorn.                                                    | `0.0.0.0`                          | Web Service       |
 | `INDEXATION_SUJET_VECTORISATION_PORT`           | Port d'écoute du serveur Web Service d'orchestration.                                                | `6381` (ou `8100`)                 | Web Service       |
-| `INDEXATION_SUJET_DOCKER_VOLUME_BIND`           | Chemin du répertoire hôte contenant les volumes à monter dans les conteneurs batch (`/app/data`).    | `./volumes`                        | Docker batch      |
-| `INDEXATION_SUJET_DOCKER_NETWORK`               | Nom du réseau Docker partagé entre Qdrant et les conteneurs de vectorisation.                        | `mon_reseau`                       | Docker batch      |
-| `INDEXATION_SUJET_DOCKER_IMAGE_BATCH`           | Image Docker exécutée pour les tâches de calcul batch éphémères.                                     | `rameau_vectorize_batch:latest`    | Docker batch      |
-| `INDEXATION_SUJET_DOCKER_SOCK`                  | URI du socket du démon Docker utilisé pour l'orchestration DooD.                                     | `unix:///var/run/docker.sock`      | Docker batch      |
-| `INDEXATION_SUJET_DOCKER_BATCH_USER`            | Utilisateur système exécutant le processus dans le conteneur batch.                                  | `root`                             | Sécurité / Droits |
 | `INDEXATION_SUJET_CSV_INIT_FILENAME`            | Nom du fichier CSV d'initialisation attendu dans `./volumes/csv/`.                                   | `export_rameau.csv`                | Données sources   |
 | `INDEXATION_SUJET_CSV_UPDATE_FILENAME`          | Nom du fichier CSV de mise à jour différentielle attendu dans `./volumes/csv/`.                      | `export_rameau_update.csv`         | Données sources   |
 | `INDEXATION_SUJET_VECTORIZE_CONCEPTS_OR_CHAINS` | Typologie de vedettes à vectoriser par défaut lors d'un appel à `/init` ou `/update`.                | `concepts`                         | Paramétrage batch |
 | `INDEXATION_SUJET_VECTORIZE_AVEC_THESE`         | Périmètre documentaire traité par défaut lors d'un appel à `/init` ou `/update`.                     | `only_mono`                        | Paramétrage batch |
-| `ENABLE_GPU`                                    | Active l'allocation matérielle GPU NVIDIA (`--gpus all` / device requests) pour l'inférence PyTorch. | `false` (local) / `true` (serveur) | Performance       |
+| `INDEXATION_SUJET_VECTORIZE_MAX_PARALLEL`       | Nombre max de sous-processus de vectorisation simultanés (les autres attendent dans une file).       | `2`                                | Performance       |
+| `INDEXATION_SUJET_VECTORIZE_THREADS_PER_JOB`    | Threads de calcul (`OMP_NUM_THREADS`, `MKL_NUM_THREADS`) par sous-processus. Vide ou `0` : CPU du conteneur / `MAX_PARALLEL`. | vide | Performance       |
 
 > [!CAUTION]
 > **Consigne de sécurité ABES** : Ne versionnez jamais le fichier `.env` contenant les configurations locales ou spécifiques aux serveurs. Seul [`.env-dist`](./.env-dist) doit être commité.
@@ -205,15 +203,15 @@ Le diagramme suivant détaille le cycle de transformation de la donnée au sein 
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                    ORCHESTRATEUR FASTAPI (src/load_qdrant_ws.py)                       │
 │                        Écoute : Port 6381 (ou 8100 dans Docker)                        │
-│  • Endpoints : /health, /init, /update, /init/upload, /update/upload                   │
-│  • Pilotage Docker-out-of-Docker (DooD) via /var/run/docker.sock                       │
-│  • Instanciation en parallèle de 3 conteneurs batch distincts (1 par modèle)           │
+│  • Endpoints : /health, /init, /update, /status, /init/upload, /update/upload          │
+│  • File d'attente : 12 traitements (modèle × typologie × langue)                       │
+│  • Au plus INDEXATION_SUJET_VECTORIZE_MAX_PARALLEL sous-processus simultanés           │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │ Déclenchement conteneurs éphémères (--rm)
+                                            │ Sous-processus dans le même conteneur
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │             PIPELINE DE VECTORISATION BATCH (src/rameau_vectorize.py)                  │
-│                        Image : rameau_vectorize_batch:latest                           │
+│               Limites globales : mem_limit / cpus du conteneur                         │
 │                                                                                        │
 │  ┌─────────────────────────┐   ┌──────────────────────────┐   ┌─────────────────────┐  │
 │  │     1. Prétraitement    │   │   2. Encodage Dense      │   │  3. Agrégation      │  │
@@ -287,40 +285,35 @@ cp .env-dist .env
 
 # 3. Construire l'image applicative
 docker build -t indexation-sujet-vectorisation .
-
-# 4. Appliquer le tag requis pour les conteneurs éphémères déclenchés par le Web Service
-docker tag indexation-sujet-vectorisation rameau_vectorize_batch:latest
 ```
 
 #### 3. Démarrage du Web Service d'orchestration (`load_qdrant_ws.py`)
 
-Le conteneur monte le socket Docker hôte afin de pouvoir instancier les sous-conteneurs de vectorisation (mode DooD) :
+Les traitements de vectorisation tournent en sous-processus dans ce conteneur : ses limites `--memory` / `--cpus` bornent l'ensemble des traitements (ajouter `--gpus all` pour l'accélération GPU) :
 
 ```bash
 # Sur Linux / macOS :
 docker run -d \
   --name indexation-sujet-vectorisation \
-  --user root \
   --network mon_reseau \
   -p 6381:8100 \
+  --memory 16g --cpus 8 \
   --env-file .env \
-  -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$(pwd)/volumes":/app/data \
   indexation-sujet-vectorisation
 
 # Sur Windows PowerShell :
 docker run -d `
   --name indexation-sujet-vectorisation `
-  --user root `
   --network mon_reseau `
   -p 6381:8100 `
+  --memory 16g --cpus 8 `
   --env-file .env `
-  -v //var/run/docker.sock:/var/run/docker.sock `
   -v ${PWD}/volumes:/app/data `
   indexation-sujet-vectorisation
 ```
 
-#### 4. Exécution ponctuelle directe du batch en conteneur éphémère (`--rm`)
+#### 4. Exécution ponctuelle directe du batch dans un conteneur temporaire (`--rm`)
 
 Pour lancer un traitement complet en ligne de commande sans démarrer le serveur web :
 
@@ -332,7 +325,7 @@ Pour lancer un traitement complet en ligne de commande sans démarrer le serveur
     --gpus all \
     -v "$(pwd)/volumes":/app/data \
     indexation-sujet-vectorisation \
-    python rameau_vectorize.py --action init --conceptsORchains concepts --alias_model allMin --avec_these only_mono
+    python src/rameau_vectorize.py --action init --conceptsORchains concepts --alias_model allMin --avec_these only_mono
   ```
 
 - **Sans GPU (exécution CPU)** :
@@ -341,7 +334,7 @@ Pour lancer un traitement complet en ligne de commande sans démarrer le serveur
     --network mon_reseau \
     -v "$(pwd)/volumes":/app/data \
     indexation-sujet-vectorisation \
-    python rameau_vectorize.py --action init --conceptsORchains concepts --alias_model allMin --avec_these only_mono
+    python src/rameau_vectorize.py --action init --conceptsORchains concepts --alias_model allMin --avec_these only_mono
   ```
 
 ---
@@ -380,7 +373,7 @@ pip install -r requirements.txt
 
 # 5. Configuration de l'environnement
 cp .env-dist .env
-# Adapter .env (régler INDEXATION_SUJET_QDRANT_HOST=localhost, ENABLE_GPU=true/false)
+# Adapter .env (régler INDEXATION_SUJET_QDRANT_HOST=localhost)
 ```
 
 #### 3. Lancement des composants en local
@@ -422,8 +415,8 @@ Les logs d'avancement des mini-lots de vectorisation et de création des fichier
   # Suivre les logs du web service
   docker logs -f indexation-sujet-vectorisation
 
-  # Suivre les conteneurs batchs éphémères lancés
-  docker ps -a --filter "ancestor=rameau_vectorize_batch:latest"
+  # Suivre l'état des traitements (queued / running / success / failed)
+  curl -s http://localhost:6381/status
   ```
 
 ### 3. Sonde de santé applicative (Healthcheck)
