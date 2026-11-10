@@ -7,3 +7,5 @@ venv
 .idea
 __pycache__/
 *.py[cod]
+/src/data
+/src/__pycache__
