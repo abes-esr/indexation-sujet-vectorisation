@@ -22,13 +22,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 
-# Création du groupe docker et d'un utilisateur non-root pour la sécurité
+# Création d'un utilisateur non-root pour la sécurité
 # Note: Dans Ubuntu 24.04 (image PyTorch), l'UID 1000 est déjà pris par l'utilisateur 'ubuntu'
-RUN (groupadd -g 999 docker 2>/dev/null || groupadd docker 2>/dev/null || true) && \
-    (userdel -r ubuntu 2>/dev/null || true) && \
+RUN (userdel -r ubuntu 2>/dev/null || true) && \
     (groupdel ubuntu 2>/dev/null || true) && \
     (useradd -u 1000 -m -s /bin/bash appuser 2>/dev/null || useradd -m -s /bin/bash appuser) && \
-    (usermod -aG docker appuser 2>/dev/null || true) && \
     mkdir -p /app/data/csv /app/data/pkl && \
     chown -R appuser:appuser /app
 
@@ -40,9 +38,8 @@ FROM base AS vectorisation-image
 # Copie des sources de l'application
 COPY --chown=appuser:appuser src/ /app/src/
 
-# Pour faciliter l'exécution directe des scripts à la racine du conteneur
+# Pour faciliter l'exécution directe du web service à la racine du conteneur
 RUN ln -s /app/src/load_qdrant_ws.py /app/load_qdrant_ws.py && \
-    ln -s /app/src/rameau_vectorize.py /app/rameau_vectorize.py && \
     ln -s /app/src/config.py /app/config.py
 
 USER appuser

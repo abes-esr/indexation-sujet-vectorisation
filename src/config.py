@@ -13,12 +13,6 @@ APP_DATA_DIR = "/app/data"
 CSV_DIR = "/app/data/csv"
 PKL_DIR = "/app/data/pkl"
 
-DOCKER_VOLUME_BIND = os.getenv("INDEXATION_SUJET_DOCKER_VOLUME_BIND", "./volumes")
-DOCKER_NETWORK = os.getenv("INDEXATION_SUJET_DOCKER_NETWORK", "mon_reseau")
-DOCKER_IMAGE_BATCH = os.getenv("INDEXATION_SUJET_DOCKER_IMAGE_BATCH", "rameau_vectorize_batch:latest")
-DOCKER_SOCK = os.getenv("INDEXATION_SUJET_DOCKER_SOCK", "unix:///var/run/docker.sock")
-DOCKER_BATCH_USER = os.getenv("INDEXATION_SUJET_DOCKER_BATCH_USER", "root")
-
 # Configuration des fichiers CSV d'ingestion RAMEAU
 CSV_INIT_FILENAME = os.getenv("INDEXATION_SUJET_CSV_INIT_FILENAME", "export_rameau.csv")
 CSV_UPDATE_FILENAME = os.getenv("INDEXATION_SUJET_CSV_UPDATE_FILENAME", "export_rameau_update.csv")
@@ -33,8 +27,11 @@ VECTORIZE_LANGS = [
 VECTORIZE_AVEC_THESE = os.getenv("INDEXATION_SUJET_VECTORIZE_AVEC_THESE", "only_mono")
 MODELS = ["allMin", "distiluse", "e5-large"]
 
-# Accélération GPU pour les conteneurs batch (désactivée par défaut pour compatibilité locale)
-ENABLE_GPU = os.getenv("ENABLE_GPU", "false").lower() in ("true", "1", "yes")
+# Exécution des sous-processus de vectorisation (la mémoire et les CPU globaux sont bornés par le conteneur)
+# Nombre maximal de sous-processus exécutés simultanément (les autres attendent dans une file)
+VECTORIZE_MAX_PARALLEL = max(1, int(os.getenv("INDEXATION_SUJET_VECTORIZE_MAX_PARALLEL") or "2"))
+# Threads de calcul (torch/OMP/MKL) par sous-processus. 0 = CPU du conteneur / VECTORIZE_MAX_PARALLEL
+VECTORIZE_THREADS_PER_JOB = max(0, int(os.getenv("INDEXATION_SUJET_VECTORIZE_THREADS_PER_JOB") or "0"))
 
 API_HOST = os.getenv("INDEXATION_SUJET_VECTORISATION_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("INDEXATION_SUJET_VECTORISATION_PORT", "6381"))

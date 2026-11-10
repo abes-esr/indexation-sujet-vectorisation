@@ -5,3 +5,5 @@ volumes
 venv
 !.env-dist
 .idea
+__pycache__/
+*.py[cod]

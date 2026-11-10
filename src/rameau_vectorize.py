@@ -303,7 +303,7 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         
         if len(training_data.index) <2:
             print("les données a charger sont vides on quit")
-            quit()
+            sys.exit(1)
         # ## Calcul des embeddings
         
         # In[9]:
@@ -426,7 +426,7 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         size_origine_new=len(result)
         if size_csv_update*2 < size_csv:
             print("en mode init : le resultat des embedding est incoherent avec la taille du fichier d origine :"+str(size_csv)+" et le fichier de embeddings : "+str(size_csv_update)+" on quit")
-            quit()
+            sys.exit(1)
         with open(root+RameauVectors+'.pkl','wb') as f:
                 pickle.dump(result,f) 
     
@@ -444,7 +444,7 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         print("en mode update" )
         if os.path.exists(root+RameauVectors+'.pkl')==False:
             print("le fichier global: "+RameauVectors+".pkl n existe pas, il a ete detruit ou un init n'as pas ete fait au part avant,  on  quit")
-            quit()
+            sys.exit(1)
         #recup tous les vecteur par ppn
         print("")
         print("en mode update : chargement du fichier global init vectorisé : "+root+RameauVectors+".pkl")
@@ -457,7 +457,7 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         
         if size_origine <10:
             print("les vecteurs sauvegardes dans le fichier origine :"+RameauVectors+".pkl sont inferieur a 10 il y a probablement un pb on  quit")
-            quit()
+            sys.exit(1)
         #recup des fichiers vectors d update
         list_of_files = Path(root1).glob('df_all_'+RameauVectors+'*.pkl')
         pos=0
@@ -483,7 +483,7 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         
         if size_origine_new*2 < size_origine:
             print("le nombre total de vecteurs fusionnés "+str(size_origine_new)+" est tres inferieur au fichier origine :"+str(size_origine)+" , il y a probablement un pb on  quit pour eviter de veroler le fichier origine :"+RameauVectors+".pkl")
-            quit()
+            sys.exit(1)
         #sauvegarde tous les nouveau vecteurs
         print("mise a jour du fichier global init :"+RameauVectors+".pkl")
         #df4.to_pickle(root+RameauVectors+'.pkl')
@@ -673,7 +673,7 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         result.info()
         if len(result.index)*20 <size_origine_new:
                 print("le nombre de  vecteurs :"+str(len(result.index))+ "*10 est inferieur au vecteurs origine:  "+ str(size_origine_new)+" ce qui est trop peut pour rameau (environ 40000) il y a probablement un pb on  quit le chargement dans qdrant pour ne pas detruire la version existante")
-                quit() 
+                sys.exit(1)
         #creation fichier de sauvegarde
         print("Sauvegarde du Fichier vecteur resultat pour qdrant dans :archive_"+RameauVectors+'.pkl')
         result.to_pickle(root+'archive_'+RameauVectors+'.pkl')
@@ -688,7 +688,7 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         print("archive_"+RameauVectors+'.pkl')
         if os.path.exists(root+'archive_'+RameauVectors+'.pkl')==False:
             print("le fichier des vecteurs : 'archive_'+"+RameauVectors+".pkl n existe pas on  quit")
-            quit()
+            sys.exit(1)
         print(root+'archive_'+RameauVectors+'.pkl')
         result = pd.read_pickle(root+'archive_'+RameauVectors+'.pkl')
         
@@ -697,7 +697,7 @@ def launch(action_in, conceptsORchains, alias_model, avec_these, csv_filename_in
         min_vectors = int(getattr(config, 'QDRANT_MIN_VECTORS', 1000))
         if len(result.index) < min_vectors:
                 print(f"le nombre de vecteurs ({len(result.index)}) est inferieur au seuil minimal configuré ({min_vectors}) ce qui est trop peu pour rameau (environ 40000). Abandon du chargement dans qdrant pour ne pas detruire la version existante.")
-                quit() 
+                sys.exit(1)
         
         # ## Initialisation d'une instance Qdrant et création d'une collection pour stocker les données
         client = QdrantClient(host=adress_qdrant, port=port_qdrant)
@@ -867,23 +867,23 @@ def main():
         if options.action not in ['init','update','auto','restore']:
             print ('action doit avoir :init, update ou auto')
             ok =False
-            quit()
+            sys.exit(1)
         if options.conceptsORchains not in ['concepts','chains']:
             print ('conceptsORchains doit avoir :concepts ou chains')
             ok =False
-            quit()
+            sys.exit(1)
         if options.alias_model not in ['allMin','distiluse','e5-large']:
             print ('alias_model doit avoir :allMin, distiluse ou e5-large')
             ok =False
-            quit()
+            sys.exit(1)
         if options.avec_these not in ['only_mono','only_theses','with_theses']:
             print ('avec_these doit avoir :only_mono, only_theses ou with_theses')
             ok =False
-            quit()
+            sys.exit(1)
         if options.lang not in ['fr','all']:
             print ('lang doit avoir :fr ou all')
             ok =False
-            quit()
+            sys.exit(1)
 
         if ok==True:
             launch(options.action, options.conceptsORchains, options.alias_model, options.avec_these, options.csv_filename, options.lang)
