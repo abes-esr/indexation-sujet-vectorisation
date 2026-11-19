@@ -6,7 +6,7 @@ name: "Buildx Publish"
 # exemple, si vous indiquez : abesesr/abes-hello
 #   alors l'image sera poussée sur https://hub.docker.com/r/abesesr/abes-hello
 env:
-  DOCKERHUB_IMAGE_PREFIX: abesesr/iar
+  DOCKERHUB_IMAGE_PREFIX: abesesr/indexation-sujet
 
 on:
   push:

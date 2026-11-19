@@ -8,12 +8,7 @@ avant de charger les gros fichiers de modèles.
 #!/usr/bin/env python
 # coding: utf-8
 
-#docker
-'''
 
-sudo docker run --network mon_reseau --gpus all -v /home/ubuntu/cbd/docker/rameau_vectorize_service:/app --rm test --action toto
-sudo docker run --network mon_reseau --gpus all -v /home/ubuntu/cbd/docker/rameau_vectorize_service:/app --rm -it --entrypoint bash  test
-'''
 
 # la procedure oracle de traitement sur la base xml est QE_EXPORT_RAMEAU
 # pour initier les serveurs ; 
@@ -28,18 +23,8 @@ sudo docker run --network mon_reseau --gpus all -v /home/ubuntu/cbd/docker/ramea
 # python wided-test_cbd3.py
 #pour tester http://SERVEUR_DE_TEST_IP:8068/subject_indexation/?docId=NULL&Title=la%20radio&Summary=&models=victor1_concept,victor2,victor3_chain&aggregationType=intersection2models,llm&subjects&MaxCount=6&Agent=RCR&vocabulary=rameau&Format=text
 
-import re
-
-
-from datetime import datetime 
-from pathlib import Path
-
-import os
-import configparser
 import optparse
-from pathlib import Path
 import pandas as pd
-import numpy as np
 
 
 
