@@ -35,3 +35,5 @@ VECTORIZE_THREADS_PER_JOB = max(0, int(os.getenv("INDEXATION_SUJET_VECTORIZE_THR
 
 API_HOST = os.getenv("INDEXATION_SUJET_VECTORISATION_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("INDEXATION_SUJET_VECTORISATION_PORT", "6381"))
+# Préfixe de chemin exposé par le reverse proxy (vide en local)
+API_ROOT_PATH = os.getenv("INDEXATION_SUJET_VECTORISATION_ROOT_PATH", "").strip()

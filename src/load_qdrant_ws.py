@@ -16,7 +16,8 @@ import config
 VECTORIZE_SCRIPT = Path(__file__).resolve().parent / "rameau_vectorize.py"
 APP_ROOT = VECTORIZE_SCRIPT.parent.parent
 
-app = FastAPI()
+# Préfixe de chemin exposé par le reverse proxy (vide en local)
+app = FastAPI(root_path=config.API_ROOT_PATH)
 
 # Verrou empêchant le lancement de deux pipelines simultanés (init/update)
 _pipeline_lock = threading.Lock()
